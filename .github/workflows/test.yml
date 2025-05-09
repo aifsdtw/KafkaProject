@@ -1,0 +1,21 @@
+# .github/workflows/dummy-job.yml
+name: Dummy Job Workflow
+
+on:
+  push:
+    branches:
+      - main  # Trigger on push to the 'main' branch
+
+jobs:
+  dummy-job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Say Hello
+        run: echo "Hello, this is a dummy job!"
+
+      - name: Print Current Date
+        run: date
