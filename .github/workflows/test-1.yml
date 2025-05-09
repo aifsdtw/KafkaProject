@@ -1,0 +1,40 @@
+# .github/workflows/fail-then-pass.yml
+name: Fail Then Pass
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fail-then-pass:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Restore 'first-run' marker
+        id: cache-restore
+        uses: actions/cache@v3
+        with:
+          path: first-run.txt
+          key: first-run-marker
+
+      - name: Determine run status
+        id: check
+        run: |
+          if [ -f first-run.txt ]; then
+            echo "Rerun detected. Succeeding."
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "First run. Failing on purpose."
+            echo "status=fail" >> $GITHUB_OUTPUT
+            echo "marker" > first-run.txt
+          fi
+
+      - name: Save cache marker
+        if: steps.check.outputs.status == 'fail'
+        uses: actions/cache/save@v3
+        with:
+          path: first-run.txt
+          key: first-run-marker
+
+      - name: Fail the job on first run
+        if: steps.check.outputs.status == 'fail'
+        run: exit 1
