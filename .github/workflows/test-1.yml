@@ -1,7 +1,7 @@
 name: Fail then Pass Workflow
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   fail-then-pass:
@@ -11,35 +11,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up run count file
+      - name: Set up run count artifact
+        id: setup
         run: |
-          if [ ! -f .run-count ]; then
-            echo "0" > .run-count
+          # Check if the artifact already exists
+          if [ -f run-count.txt ]; then
+            echo "Run count file found."
+            COUNT=$(cat run-count.txt)
+          else
+            COUNT=0
+            echo "No previous run count found. Initializing to 0."
           fi
-
-      - name: Read run count
-        id: read_count
-        run: |
-          COUNT=$(cat .run-count)
-          echo "Current run count: $COUNT"
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "run_count=$COUNT" >> $GITHUB_ENV
+          echo "$COUNT" > run-count.txt
 
       - name: Fail if first run
-        if: steps.read_count.outputs.count == '0'
+        if: ${{ env.run_count == '0' }}
         run: |
           echo "Failing on first run..."
-          echo "1" > .run-count
+          echo "1" > run-count.txt  # Update the run count for the next run
           exit 1
 
       - name: Success message
-        if: steps.read_count.outputs.count == '1'
-        run: echo "This is the second run. Success!"
-
-      - name: Commit updated count
-        if: always()
+        if: ${{ env.run_count == '1' }}
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git add .run-count
-          git commit -m "Update run count" || echo "No changes to commit"
-          git push || echo "Push failed (likely due to previous failure)"
+          echo "This is the second run. Success!"
+          echo "0" > run-count.txt  # Reset count to 0 for the next fresh run
+
+      - name: Upload run count artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-count-artifact
+          path: run-count.txt
