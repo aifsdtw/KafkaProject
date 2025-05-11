@@ -1,4 +1,3 @@
-# .github/workflows/fail-then-pass.yml
 name: Fail Then Pass
 
 on:
