@@ -1,42 +1,47 @@
-name: Fail Then Pass
+name: Fail then Pass Workflow
 
 on:
   push:
-      branches:
-        - main  # Trigger on push to the 'main' branch
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
   fail-then-pass:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Restore 'first-run' marker
-        id: cache-restore
-        uses: actions/cache@v3
-        with:
-          path: first-run.txt
-          key: first-run-marker
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Determine run status
-        id: check
+      - name: Set up run count file
         run: |
-          if [ -f first-run.txt ]; then
-            echo "Rerun detected. Succeeding."
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "First run. Failing on purpose."
-            echo "status=fail" >> $GITHUB_OUTPUT
-            echo "marker" > first-run.txt
+          if [ ! -f .run-count ]; then
+            echo "0" > .run-count
           fi
 
-      - name: Save cache marker
-        if: steps.check.outputs.status == 'fail'
-        uses: actions/cache/save@v3
-        with:
-          path: first-run.txt
-          key: first-run-marker
+      - name: Read run count
+        id: read_count
+        run: |
+          COUNT=$(cat .run-count)
+          echo "Current run count: $COUNT"
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
 
-      - name: Fail the job on first run
-        if: steps.check.outputs.status == 'fail'
-        run: exit 1
+      - name: Fail if first run
+        if: steps.read_count.outputs.count == '0'
+        run: |
+          echo "Failing on first run..."
+          echo "1" > .run-count
+          exit 1
+
+      - name: Success message
+        if: steps.read_count.outputs.count == '1'
+        run: echo "This is the second run. Success!"
+
+      - name: Commit updated count
+        if: always()
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add .run-count
+          git commit -m "Update run count" || echo "No changes to commit"
+          git push || echo "Push failed (likely due to previous failure)"
