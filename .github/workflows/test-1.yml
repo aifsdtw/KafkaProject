@@ -11,13 +11,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up run count artifact
+      - name: Download run count artifact (if exists)
+        uses: actions/download-artifact@v4
+        with:
+          name: run-count-artifact
+          path: ./
+
+      - name: Set up run count
         id: setup
         run: |
-          # Check if the artifact already exists
           if [ -f run-count.txt ]; then
-            echo "Run count file found."
             COUNT=$(cat run-count.txt)
+            echo "Run count file found. Count is $COUNT."
           else
             COUNT=0
             echo "No previous run count found. Initializing to 0."
