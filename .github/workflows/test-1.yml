@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Try to download marker artifact (will fail on first run)
-        continue-on-error: true
+      - name: Try to download marker artifact
         uses: actions/download-artifact@v4
         with:
           name: marker
           path: .
+        continue-on-error: true
 
       - name: Determine run status
         id: check
@@ -28,6 +28,7 @@ jobs:
             echo "First run. Failing intentionally."
             echo "marker" > first-run.txt
             echo "status=fail" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload marker for next run
         if: steps.check.outputs.status == 'fail'
