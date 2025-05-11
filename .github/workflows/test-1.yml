@@ -1,51 +1,43 @@
-name: Fail then Pass Workflow
+# .github/workflows/fail-then-pass.yml
+name: Fail Then Pass
 
 on:
-  workflow_dispatch: # Allows manual trigger
+  push:
+      branches:
+        - main  # Trigger on push to the 'main' branch
+  workflow_dispatch:
 
 jobs:
   fail-then-pass:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Download run count artifact (if exists)
-        uses: actions/download-artifact@v4
+      - name: Restore 'first-run' marker
+        id: cache-restore
+        uses: actions/cache@v3
         with:
-          name: run-count-artifact
-          path: ./
+          path: first-run.txt
+          key: first-run-marker
 
-      - name: Set up run count
-        id: setup
+      - name: Determine run status
+        id: check
         run: |
-          if [ -f run-count.txt ]; then
-            COUNT=$(cat run-count.txt)
-            echo "Run count file found. Count is $COUNT."
+          if [ -f first-run.txt ]; then
+            echo "Rerun detected. Succeeding."
+            echo "status=success" >> $GITHUB_OUTPUT
           else
-            COUNT=0
-            echo "No previous run count found. Initializing to 0."
+            echo "First run. Failing on purpose."
+            echo "status=fail" >> $GITHUB_OUTPUT
+            echo "marker" > first-run.txt
           fi
-          echo "run_count=$COUNT" >> $GITHUB_ENV
-          echo "$COUNT" > run-count.txt
 
-      - name: Fail if first run
-        if: ${{ env.run_count == '0' }}
-        run: |
-          echo "Failing on first run..."
-          echo "1" > run-count.txt  # Update the run count for the next run
-          exit 1
-
-      - name: Success message
-        if: ${{ env.run_count == '1' }}
-        run: |
-          echo "This is the second run. Success!"
-          echo "0" > run-count.txt  # Reset count to 0 for the next fresh run
-
-      - name: Upload run count artifact
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Save cache marker
+        if: steps.check.outputs.status == 'fail'
+        uses: actions/cache/save@v3
         with:
-          name: run-count-artifact
-          path: run-count.txt
+          path: first-run.txt
+          key: first-run-marker
+
+      - name: Fail the job on first run
+        if: steps.check.outputs.status == 'fail'
+        run: exit 1
