@@ -2,8 +2,8 @@ name: Fail Then Pass
 
 on:
   push:
-    branches:
-      - main
+      branches:
+        - main  # Trigger on push to the 'main' branch
   workflow_dispatch:
 
 jobs:
@@ -11,32 +11,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Try to download marker artifact
-        uses: actions/download-artifact@v4
+      - name: Restore 'first-run' marker
+        id: cache-restore
+        uses: actions/cache@v3
         with:
-          name: marker
-          path: .
-        continue-on-error: true
+          path: first-run.txt
+          key: first-run-marker
 
       - name: Determine run status
         id: check
         run: |
           if [ -f first-run.txt ]; then
-            echo "Rerun detected. Passing."
-            echo "status=pass" >> $GITHUB_OUTPUT
+            echo "Rerun detected. Succeeding."
+            echo "status=success" >> $GITHUB_OUTPUT
           else
-            echo "First run. Failing intentionally."
-            echo "marker" > first-run.txt
+            echo "First run. Failing on purpose."
             echo "status=fail" >> $GITHUB_OUTPUT
+            echo "marker" > first-run.txt
           fi
 
-      - name: Upload marker for next run
+      - name: Save cache marker
         if: steps.check.outputs.status == 'fail'
-        uses: actions/upload-artifact@v4
+        uses: actions/cache/save@v3
         with:
-          name: marker
           path: first-run.txt
+          key: first-run-marker
 
-      - name: Fail intentionally on first run
+      - name: Fail the job on first run
         if: steps.check.outputs.status == 'fail'
         run: exit 1
