@@ -1,10 +1,9 @@
-# .github/workflows/fail-then-pass.yml
 name: Fail Then Pass
 
 on:
   push:
-      branches:
-        - main  # Trigger on push to the 'main' branch
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -12,32 +11,48 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Restore 'first-run' marker
+      - name: Restore first-run marker
         id: cache-restore
-        uses: actions/cache@v3
-        with:
-          path: first-run.txt
-          key: first-run-marker
-
-      - name: Determine run status
-        id: check
         run: |
           if [ -f first-run.txt ]; then
-            echo "Rerun detected. Succeeding."
-            echo "status=success" >> $GITHUB_OUTPUT
+            echo "marker found" > result.txt
           else
-            echo "First run. Failing on purpose."
-            echo "status=fail" >> $GITHUB_OUTPUT
+            echo "marker not found" > result.txt
+        shell: bash
+
+      - name: Check if first run
+        id: check
+        run: |
+          if grep -q "not found" result.txt; then
+            echo "First run. Failing intentionally."
             echo "marker" > first-run.txt
-          fi
+            echo "status=fail" >> $GITHUB_OUTPUT
+          else
+            echo "Rerun detected. Passing."
+            echo "status=pass" >> $GITHUB_OUTPUT
 
-      - name: Save cache marker
+      - name: Save marker file
         if: steps.check.outputs.status == 'fail'
-        uses: actions/cache/save@v3
-        with:
-          path: first-run.txt
-          key: first-run-marker
+        run: |
+          echo "Saving marker file..."
+          mkdir -p tmp
+          cp first-run.txt tmp/
+        shell: bash
 
-      - name: Fail the job on first run
+      - name: Upload marker as artifact
+        if: steps.check.outputs.status == 'fail'
+        uses: actions/upload-artifact@v3
+        with:
+          name: marker
+          path: tmp/first-run.txt
+
+      - name: Download marker on rerun
+        if: steps.check.outputs.status == 'pass'
+        uses: actions/download-artifact@v3
+        with:
+          name: marker
+          path: .
+
+      - name: Fail if status is fail
         if: steps.check.outputs.status == 'fail'
         run: exit 1
